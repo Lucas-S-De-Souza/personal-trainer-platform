@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   Variáveis de design da LANDING PAGE (site institucional).
+   Usadas apenas dentro de src/styles/landing.module.css — não
+   colidem com os tokens do Tailwind (que usa outro mecanismo,
+   as classes utilitárias configuradas em tailwind.config.ts).
+   ============================================ */
+:root {
+  --landing-bg: #faf8f9;
+  --landing-surface: #ffffff;
+  --landing-ink: #0a0a0a;
+  --landing-ink-soft: #1a1418;
+  --landing-pink: #e84cad;
+  --landing-pink-deep: #a82d79;
+  --landing-gray: #f5f1f3;
+  --landing-gray-text: #6e6570;
+  --landing-border: #ece1e7;
+
+  --landing-font-display: "Poppins", sans-serif;
+  --landing-font-body: "Inter", sans-serif;
+
+  --landing-radius-sm: 12px;
+  --landing-radius-md: 20px;
+  --landing-radius-lg: 28px;
+  --landing-shadow-soft: 0 20px 40px rgba(10, 10, 10, 0.06);
+  --landing-shadow-lift: 0 24px 48px rgba(10, 10, 10, 0.12);
+  --landing-section-pad: clamp(64px, 10vw, 128px);
+  --landing-ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-sm font-semibold transition-transform duration-200 ease-out;
+  }
+  .btn-lg {
+    @apply w-full px-8 py-4 text-base;
+  }
+  .btn-primary {
+    @apply bg-pink text-ink shadow-[0_12px_24px_rgba(232,76,173,0.35)] hover:-translate-y-0.5;
+  }
+  .btn-outline {
+    @apply border border-gray-border bg-transparent text-ink hover:border-ink;
+  }
+
+  .field-label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .field-input {
+    @apply w-full rounded-xl border border-gray-border bg-white px-4 py-3 text-sm text-ink outline-none transition-colors focus:border-pink;
+  }
+  .field-error {
+    @apply mt-1.5 text-xs font-medium text-red-600;
+  }
+}

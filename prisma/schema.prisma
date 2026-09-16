@@ -1,0 +1,113 @@
+// ============================================================
+// Schema do banco de dados (PostgreSQL via Prisma ORM)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BillingInterval {
+  MONTHLY
+  QUARTERLY
+}
+
+// Espelha o ciclo de vida real de uma assinatura na Stripe.
+// https://docs.stripe.com/billing/subscriptions/overview#subscription-statuses
+enum SubscriptionStatus {
+  INCOMPLETE // criada, mas o primeiro pagamento ainda não foi confirmado
+  ACTIVE // pagamento em dia
+  PAST_DUE // cobrança falhou, Stripe está tentando cobrar de novo
+  CANCELED // cancelada (pelo aluno, pela Thais, ou por falha definitiva)
+  UNPAID // esgotou as tentativas de cobrança sem sucesso
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  // Snapshot do plano no momento da assinatura — guardamos o valor aqui
+  // (e não só uma referência) para manter histórico correto mesmo se o
+  // preço do plano mudar no futuro.
+  planId   String
+  planName String
+  interval BillingInterval
+  amount   Int // valor cobrado POR CICLO, em centavos (ex: mensal=24900, trimestral=67230)
+  currency String @default("brl")
+
+  // Dados do aluno (nunca dados de cartão — isso fica 100% com a Stripe).
+  // Isso É o cadastro do aluno; não existe uma tabela de "usuários" separada.
+  customerName  String
+  customerEmail String
+  customerPhone String
+
+  status SubscriptionStatus @default(INCOMPLETE)
+
+  // Identificadores da Stripe, usados para conciliar os webhooks com o registro
+  stripeCustomerId     String
+  stripeSubscriptionId String  @unique
+
+  // Preenchidos/atualizados a partir dos webhooks de assinatura
+  currentPeriodEnd DateTime? // quando a próxima cobrança deve acontecer
+  canceledAt       DateTime?
+
+  // Controle de envio (evita reenvio duplicado se o webhook disparar mais de uma vez)
+  welcomeEmailSentAt    DateTime?
+  welcomeWhatsappSentAt DateTime?
+  cancellationEmailSentAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([customerEmail])
+  @@index([stripeCustomerId])
+}
+
+// Registro de eventos de webhook já processados.
+// Protege contra reprocessamento caso a Stripe reenvie o mesmo evento
+// (o que é esperado e recomendado pela própria documentação da Stripe).
+model ProcessedWebhookEvent {
+  id          String   @id // stripe event.id
+  type        String
+  processedAt DateTime @default(now())
+}
+
+// Senha do painel administrativo. Sempre existe no máximo 1 linha aqui
+// (id fixo "singleton") — não é um sistema de contas de verdade, é só o
+// jeito de permitir redefinir a senha em runtime (ao contrário de uma
+// senha fixa em variável de ambiente, que só muda editando o servidor).
+// Se essa linha não existir ainda, o login cai de volta pra comparar com
+// ADMIN_PASSWORD do .env (veja src/services/adminCredentialService.ts).
+model AdminCredential {
+  id           String   @id @default("singleton")
+  passwordHash String
+  updatedAt    DateTime @updatedAt
+}
+
+// Token de "esqueci minha senha", de uso único e com expiração curta.
+model AdminPasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+
+// Token de "acessar minha assinatura" (link mágico por e-mail), de uso
+// único e com expiração curta — é a "autenticação" da área do cliente,
+// sem precisar de senha/cadastro. Aponta pro Customer da Stripe (não pra
+// uma assinatura específica), porque o Customer Portal já lida sozinho
+// com qual assinatura mostrar, mesmo se a pessoa já tiver trocado de
+// plano antes (veja src/services/portalService.ts).
+model PortalAccessToken {
+  id               String    @id @default(cuid())
+  tokenHash        String    @unique
+  stripeCustomerId String
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
+}
